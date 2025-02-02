@@ -6,12 +6,12 @@ pipeline {
         }
     }
     environment {
-        SONARQUBE_TOKEN = credentials('sqp_e660e5487e87ae14834f50cf1aceead959152ad4') // Token de SonarQube
+        SONARQUBE_TOKEN = credentials(sqp_e660e5487e87ae14834f50cf1aceead959152ad4) // Usa el ID de la credencial
     }
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/tu-repositorio/mi-proyecto-python.git'
+                git branch: 'main', url: 'https://github.com/andresangarita0922/mi-proyecto-python.git'
             }
         }
         stage('Instalar dependencias') {
