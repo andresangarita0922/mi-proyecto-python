@@ -6,7 +6,7 @@ pipeline {
         }
     }
     environment {
-        SONARQUBE_TOKEN = credentials(sqp_e660e5487e87ae14834f50cf1aceead959152ad4) // Usa el ID de la credencial
+        SONARQUBE_TOKEN = credentials('sqp_e660e5487e87ae14834f50cf1aceead959152ad4') // Usa el ID de la credencial
     }
     stages {
         stage('Checkout') {
