@@ -2,11 +2,8 @@ pipeline {
     agent {
         docker {
             image 'python:3.9-slim'
-            args '-v /var/run/docker.sock:/var/run/docker.sock'
+            args '-v /var/run/docker.sock:/var/run/docker.sock -u root'  # Monta el socket y ejecuta como root
         }
-    }
-    environment {
-        SONARQUBE_TOKEN = credentials('sqp_e660e5487e87ae14834f50cf1aceead959152ad4') // Usa el ID de la credencial
     }
     stages {
         stage('Checkout') {
