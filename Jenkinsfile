@@ -3,40 +3,31 @@ pipeline {
     
     environment {
         APP_URL = 'http://localhost:8080'
+        ZAP_HOME = 'C:\\Program Files\\OWASP\\Zed Attack Proxy'
     }
     
     stages {
         stage('Preparación') {
             steps {
-                // Crear directorio para reportes
-                sh 'mkdir -p reports'
-                
-                // Asegurar que tenemos la imagen de ZAP
-                sh 'docker pull owasp/zap2docker-stable'
+                bat 'mkdir reports'
             }
         }
         
         stage('Deploy App') {
             steps {
-                // Instalar dependencias y ejecutar app
-                sh 'pip install -r requirements.txt'
-                sh 'python src/main.py &'
-                // Esperar a que la app esté lista
-                sh 'sleep 30'
+                bat 'pip install -r requirements.txt'
+                bat 'start /B python src/main.py'
+                bat 'timeout /t 30'
             }
         }
 
         stage('Baseline Scan') {
             steps {
                 script {
-                    sh '''
-                        docker run --rm \
-                        -v ${WORKSPACE}/reports:/zap/reports:rw \
-                        owasp/zap2docker-stable zap-baseline.py \
-                        -t ${APP_URL} \
-                        -J baseline-report.json \
-                        -r baseline-report.html || true
-                    '''
+                    bat """
+                        cd "${ZAP_HOME}"
+                        zap.bat -cmd -quickurl ${APP_URL} -quickprogress -quickout %WORKSPACE%\\reports\\baseline-report.html
+                    """
                 }
             }
         }
@@ -44,21 +35,16 @@ pipeline {
         stage('Full Scan') {
             steps {
                 script {
-                    sh '''
-                        docker run --rm \
-                        -v ${WORKSPACE}/reports:/zap/reports:rw \
-                        owasp/zap2docker-stable zap-full-scan.py \
-                        -t ${APP_URL} \
-                        -J full-scan-report.json \
-                        -r full-scan-report.html || true
-                    '''
+                    bat """
+                        cd "${ZAP_HOME}"
+                        zap.bat -cmd -fullurl ${APP_URL} -o -dir %WORKSPACE%\\reports -report full-scan-report.html
+                    """
                 }
             }
         }
 
         stage('Publish Reports') {
             steps {
-                // Publicar reportes HTML
                 publishHTML([
                     allowMissing: false,
                     alwaysLinkToLastBuild: true,
@@ -67,17 +53,13 @@ pipeline {
                     reportFiles: 'baseline-report.html, full-scan-report.html',
                     reportName: 'ZAP Security Reports'
                 ])
-                
-                // Archivar reportes JSON
-                archiveArtifacts artifacts: 'reports/*.json', fingerprint: true
             }
         }
     }
     
     post {
         always {
-            // Limpiar procesos
-            sh 'pkill -f "python src/main.py" || true'
+            bat 'taskkill /F /IM python.exe /FI "WINDOWTITLE eq src/main.py" || exit 0'
         }
     }
 }
