@@ -1,10 +1,5 @@
 pipeline {
-    agent {
-        docker {
-            image 'owasp/zap2docker-stable'
-            args '--network="host"'
-        }
-    }
+    agent any
     
     environment {
         APP_URL = 'http://localhost:8080'  
@@ -15,6 +10,9 @@ pipeline {
             steps {
                 script {
                     sh """
+                        sudo docker run --rm \
+                        -v \$(pwd):/zap/wrk/:rw \
+                        -t owasp/zap2docker-stable \
                         zap-baseline.py -t ${APP_URL} \
                         -r baseline-report.html \
                         -I
@@ -35,6 +33,9 @@ pipeline {
             steps {
                 script {
                     sh """
+                        sudo docker run --rm \
+                        -v \$(pwd):/zap/wrk/:rw \
+                        -t owasp/zap2docker-stable \
                         zap-full-scan.py -t ${APP_URL} \
                         -r full-scan-report.html \
                         -I
