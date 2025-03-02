@@ -3,39 +3,62 @@ pipeline {
     
     environment {
         APP_URL = 'http://localhost:8080'
-        ZAP_HOME = tool 'OWASP_ZAP'
     }
     
     stages {
-        stage('Preparar Entorno') {
+        stage('Preparación') {
             steps {
-                sh 'python -m pip install -r requirements.txt'
-                sh 'python src/main.py &'
+                // Crear directorio para reportes
+                sh 'mkdir -p reports'
+                
+                // Asegurar que tenemos la imagen de ZAP
+                sh 'docker pull owasp/zap2docker-stable'
             }
         }
         
+        stage('Deploy App') {
+            steps {
+                // Instalar dependencias y ejecutar app
+                sh 'pip install -r requirements.txt'
+                sh 'python src/main.py &'
+                // Esperar a que la app esté lista
+                sh 'sleep 30'
+            }
+        }
+
         stage('Baseline Scan') {
             steps {
-                sh """
-                    docker run -v \$(pwd)/reports:/zap/reports owasp/zap2docker-stable zap-baseline.py \
-                    -t ${APP_URL} \
-                    -r baseline-report.html
-                """
+                script {
+                    sh '''
+                        docker run --rm \
+                        -v ${WORKSPACE}/reports:/zap/reports:rw \
+                        owasp/zap2docker-stable zap-baseline.py \
+                        -t ${APP_URL} \
+                        -J baseline-report.json \
+                        -r baseline-report.html || true
+                    '''
+                }
             }
         }
-        
+
         stage('Full Scan') {
             steps {
-                sh """
-                    docker run -v \$(pwd)/reports:/zap/reports owasp/zap2docker-stable zap-full-scan.py \
-                    -t ${APP_URL} \
-                    -r full-scan-report.html
-                """
+                script {
+                    sh '''
+                        docker run --rm \
+                        -v ${WORKSPACE}/reports:/zap/reports:rw \
+                        owasp/zap2docker-stable zap-full-scan.py \
+                        -t ${APP_URL} \
+                        -J full-scan-report.json \
+                        -r full-scan-report.html || true
+                    '''
+                }
             }
         }
-        
-        stage('Publicar Reportes') {
+
+        stage('Publish Reports') {
             steps {
+                // Publicar reportes HTML
                 publishHTML([
                     allowMissing: false,
                     alwaysLinkToLastBuild: true,
@@ -44,7 +67,18 @@ pipeline {
                     reportFiles: 'baseline-report.html, full-scan-report.html',
                     reportName: 'ZAP Security Reports'
                 ])
+                
+                // Archivar reportes JSON
+                archiveArtifacts artifacts: 'reports/*.json', fingerprint: true
             }
         }
     }
+    
+    post {
+        always {
+            // Limpiar procesos
+            sh 'pkill -f "python src/main.py" || true'
+        }
+    }
 }
+
