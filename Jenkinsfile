@@ -1,8 +1,12 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'owasp/zap2docker-stable'
+            args '--network="host"'
+        }
+    }
     
     environment {
-        ZAP_HOME = tool 'owasp-zap'
         APP_URL = 'http://localhost:8080'  
     }
     
@@ -11,7 +15,7 @@ pipeline {
             steps {
                 script {
                     sh """
-                        ${ZAP_HOME}/zap-baseline.py -t ${APP_URL} \
+                        zap-baseline.py -t ${APP_URL} \
                         -r baseline-report.html \
                         -I
                     """
@@ -23,6 +27,26 @@ pipeline {
                     reportDir: '.',
                     reportFiles: 'baseline-report.html',
                     reportName: 'ZAP Baseline Report'
+                ])
+            }
+        }
+        
+        stage('OWASP ZAP - Full Scan') {
+            steps {
+                script {
+                    sh """
+                        zap-full-scan.py -t ${APP_URL} \
+                        -r full-scan-report.html \
+                        -I
+                    """
+                }
+                publishHTML([
+                    allowMissing: false,
+                    alwaysLinkToLastBuild: true,
+                    keepAll: true,
+                    reportDir: '.',
+                    reportFiles: 'full-scan-report.html',
+                    reportName: 'ZAP Full Scan Report'
                 ])
             }
         }
